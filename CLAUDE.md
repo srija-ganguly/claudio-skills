@@ -329,7 +329,7 @@ When a new version is released, Renovate automatically creates a PR to update th
 
 **Key features:**
 - Smart repo resolution (short name, full path, or URL)
-- Extensible protection rules via associative array + generic `--rule KEY=VALUE` flag
+- Extensible protection rules via parallel arrays + generic `--rule KEY=VALUE` flag
 - Idempotent protection checks (matching rules succeed, differing rules fail)
 - Dry-run mode for previewing actions
 - JSON and human-readable output
@@ -341,7 +341,7 @@ Each skill has its own dependencies:
 **GitLab Branch Manager Skill:**
 - `glab` - GitLab CLI tool
 - User already authenticated
-- Optional: `jq` for JSON parsing
+- `jq` for JSON parsing
 
 **GitLab Job Analyzer Skill:**
 - `glab` - GitLab CLI tool (used internally by scripts)

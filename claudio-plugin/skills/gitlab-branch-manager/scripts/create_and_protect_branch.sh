@@ -2,13 +2,13 @@
 # Create a GitLab branch and protect it with configurable rules
 #
 # Usage:
-#   create_and_protect_branch.sh <repo> <branch-name> [OPTIONS]
+#   create_and_protect_branch.sh <repo> <branch-name> <ref> [OPTIONS]
 #
 # Examples:
-#   ./create_and_protect_branch.sh aipcc-claudio release-1.5
-#   ./create_and_protect_branch.sh redhat/rhel-ai/ci-cd/aipcc-claudio release-1.5 --ref v1.4.0
-#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 --push-level 40 --merge-level 40
-#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 --dry-run
+#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0
+#   ./create_and_protect_branch.sh redhat/rhel-ai/ci-cd/aipcc-claudio release-1.5 v1.4.0
+#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 main --push-level 40 --merge-level 40
+#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --dry-run
 
 set -euo pipefail
 
@@ -16,19 +16,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 show_usage() {
     cat << 'EOF'
-Usage: create_and_protect_branch.sh <repo> <branch-name> [OPTIONS]
+Usage: create_and_protect_branch.sh <repo> <branch-name> <ref> [OPTIONS]
 
 Create a GitLab branch and protect it with configurable rules.
 
 ARGUMENTS:
     repo                   Repository: short name, full path, or URL
     branch-name            Name for the new branch
+    ref                    Source ref to branch from (tag, commit SHA, or branch)
 
 OPTIONS:
-    --ref REF              Source ref to branch from (default: main)
     --push-level N         Push access level (default: 0 = No access)
     --merge-level N        Merge access level (default: 40 = Maintainer)
-    --unprotect-level N    Unprotect access level (default: 0 = No access)
+    --unprotect-level N    Unprotect access level (default: not set)
     --allow-force-push     Allow force push (default: blocked)
     --code-owner-approval  Require code owner approval (default: not required)
     --gitlab-host HOST     GitLab hostname (default: gitlab.com)
@@ -44,19 +44,19 @@ ACCESS LEVELS:
 
 EXAMPLES:
     # Create and protect with defaults (strict lockdown)
-    create_and_protect_branch.sh aipcc-claudio release-1.5
+    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0
 
     # Branch from a tag
-    create_and_protect_branch.sh redhat/rhel-ai/ci-cd/repo release-1.5 --ref v1.4.0
+    create_and_protect_branch.sh redhat/rhel-ai/ci-cd/repo release-1.5 v1.4.0
 
     # Custom protection
-    create_and_protect_branch.sh aipcc-claudio release-1.5 --push-level 40 --merge-level 40
+    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --push-level 40 --merge-level 40
 
     # Dry run
-    create_and_protect_branch.sh aipcc-claudio release-1.5 --dry-run
+    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --dry-run
 
     # Generic rule override
-    create_and_protect_branch.sh aipcc-claudio release-1.5 --rule merge_access_level=30
+    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --rule merge_access_level=30
 EOF
 }
 
@@ -127,25 +127,40 @@ log() {
     echo "$*" >&2
 }
 
+check_deps() {
+    if ! command -v glab &>/dev/null; then
+        echo '{"error":"glab is required but not found. Install via tools/glab/install.sh"}' >&2
+        exit 1
+    fi
+    if ! command -v jq &>/dev/null; then
+        echo '{"error":"jq is required but not found. Install via tools/jq/install.sh"}' >&2
+        exit 1
+    fi
+}
+
 json_error() {
     local error="$1"
     local repo="${2:-}"
     local branch="${3:-}"
-    if command -v jq &>/dev/null; then
-        jq -n \
-            --arg error "$error" \
-            --arg repo "$repo" \
-            --arg branch "$branch" \
-            '{error: $error, repository: $repo, branch: $branch}'
-    else
-        printf '{"error":"%s","repository":"%s","branch":"%s"}\n' \
-            "$error" "$repo" "$branch"
-    fi
+    jq -n \
+        --arg error "$error" \
+        --arg repo "$repo" \
+        --arg branch "$branch" \
+        '{error: $error, repository: $repo, branch: $branch}'
 }
 
 url_encode() {
     local string="$1"
-    echo "${string//\//%2F}"
+    local encoded=""
+    local i char
+    for ((i = 0; i < ${#string}; i++)); do
+        char="${string:$i:1}"
+        case "$char" in
+            [a-zA-Z0-9._~-]) encoded+="$char" ;;
+            *) encoded+=$(printf '%%%02X' "'$char") ;;
+        esac
+    done
+    echo "$encoded"
 }
 
 # Wrapper for glab api that includes --hostname
@@ -155,24 +170,17 @@ glab_api() {
 
 # Build protection rules JSON fragment
 build_rules_json() {
-    local json="{"
-    local first=true
+    local json="{}"
     local i
     for i in $(seq 0 $((${#RULE_KEYS[@]} - 1))); do
         local key="${RULE_KEYS[$i]}"
         local val="${RULE_VALS[$i]}"
-        if [ "$first" = true ]; then
-            first=false
-        else
-            json+=","
-        fi
         if [[ "$val" =~ ^[0-9]+$ ]] || [[ "$val" == "true" ]] || [[ "$val" == "false" ]]; then
-            json+="\"$key\":$val"
+            json=$(echo "$json" | jq --arg k "$key" --argjson v "$val" '. + {($k): $v}')
         else
-            json+="\"$key\":\"$val\""
+            json=$(echo "$json" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
         fi
     done
-    json+="}"
     echo "$json"
 }
 
@@ -287,6 +295,30 @@ protect_branch() {
     glab_api --method POST "projects/$encoded_repo/protected_branches" "${args[@]}" 2>&1
 }
 
+# Extract a rule value from GitLab protected branch API response.
+# Handles nested access_levels arrays (e.g. push_access_levels[0].access_level)
+# and flat fields (e.g. allow_force_push).
+extract_protection_value() {
+    local json="$1"
+    local key="$2"
+
+    if [[ "$key" == *_access_level ]]; then
+        # Nested: push_access_level → .push_access_levels[0].access_level
+        local plural="${key%_access_level}_access_levels"
+        echo "$json" | jq -r \
+            --arg plural "$plural" \
+            --arg key "$key" \
+            'if (.[$plural] | type) == "array" and (.[$plural] | length) > 0
+             then .[$plural][0].access_level | tostring
+             elif has($key) then .[$key] | tostring
+             else "" end' 2>/dev/null
+    else
+        echo "$json" | jq -r \
+            --arg key "$key" \
+            'if has($key) then .[$key] | tostring else "" end' 2>/dev/null
+    fi
+}
+
 # Compare current protection with requested rules
 compare_protection() {
     local current_json="$1"
@@ -296,8 +328,7 @@ compare_protection() {
         local key="${RULE_KEYS[$i]}"
         local requested="${RULE_VALS[$i]}"
         local current
-        # Use jq to extract value; handle booleans correctly (jq's // treats false as falsy)
-        current=$(echo "$current_json" | jq -r "if has(\"$key\") then .$key | tostring else \"\" end" 2>/dev/null)
+        current=$(extract_protection_value "$current_json" "$key")
 
         if [[ "$current" != "$requested" ]]; then
             return 1
@@ -342,28 +373,23 @@ output_success() {
             printf "  %-35s %s\n" "${RULE_KEYS[$i]}:" "${RULE_VALS[$i]}"
         done
     else
-        if command -v jq &>/dev/null; then
-            jq -n \
-                --arg repo "$repo" \
-                --arg branch "$branch" \
-                --arg ref "$ref" \
-                --argjson branch_created "$branch_created" \
-                --argjson protection_applied "$protection_applied" \
-                --argjson protection_already_existed "$protection_already_existed" \
-                --argjson rules "$rules_json" \
-                '{
-                    repository: $repo,
-                    branch: $branch,
-                    ref: $ref,
-                    branch_created: $branch_created,
-                    protection_applied: $protection_applied,
-                    protection_already_existed: $protection_already_existed,
-                    protection_rules: $rules
-                }'
-        else
-            printf '{"repository":"%s","branch":"%s","ref":"%s","branch_created":%s,"protection_applied":%s,"protection_already_existed":%s,"protection_rules":%s}\n' \
-                "$repo" "$branch" "$ref" "$branch_created" "$protection_applied" "$protection_already_existed" "$rules_json"
-        fi
+        jq -n \
+            --arg repo "$repo" \
+            --arg branch "$branch" \
+            --arg ref "$ref" \
+            --argjson branch_created "$branch_created" \
+            --argjson protection_applied "$protection_applied" \
+            --argjson protection_already_existed "$protection_already_existed" \
+            --argjson rules "$rules_json" \
+            '{
+                repository: $repo,
+                branch: $branch,
+                ref: $ref,
+                branch_created: $branch_created,
+                protection_applied: $protection_applied,
+                protection_already_existed: $protection_already_existed,
+                protection_rules: $rules
+            }'
     fi
 }
 
@@ -372,7 +398,7 @@ output_success() {
 main() {
     local repo_input=""
     local branch_name=""
-    local ref="main"
+    local ref=""
     GITLAB_HOST="gitlab.com"
     HUMAN_OUTPUT=false
     local dry_run=false
@@ -382,10 +408,6 @@ main() {
             -h|--help)
                 show_usage
                 exit 0
-                ;;
-            --ref)
-                ref="$2"
-                shift 2
                 ;;
             --push-level)
                 rule_set push_access_level "$2"
@@ -435,6 +457,8 @@ main() {
                     repo_input="$1"
                 elif [ -z "$branch_name" ]; then
                     branch_name="$1"
+                elif [ -z "$ref" ]; then
+                    ref="$1"
                 else
                     log "Unexpected argument: $1"
                     show_usage >&2
@@ -445,8 +469,10 @@ main() {
         esac
     done
 
-    if [ -z "$repo_input" ] || [ -z "$branch_name" ]; then
-        log "Error: Both <repo> and <branch-name> are required."
+    check_deps
+
+    if [ -z "$repo_input" ] || [ -z "$branch_name" ] || [ -z "$ref" ]; then
+        log "Error: <repo>, <branch-name>, and <ref> are all required."
         show_usage >&2
         exit 1
     fi
@@ -477,23 +503,18 @@ main() {
                 printf "  %-35s %s\n" "${RULE_KEYS[$i]}:" "${RULE_VALS[$i]}"
             done
         else
-            if command -v jq &>/dev/null; then
-                jq -n \
-                    --arg repo "$repo" \
-                    --arg branch "$branch_name" \
-                    --arg ref "$ref" \
-                    --argjson rules "$rules_json" \
-                    '{
-                        dry_run: true,
-                        repository: $repo,
-                        branch: $branch,
-                        ref: $ref,
-                        planned_protection_rules: $rules
-                    }'
-            else
-                printf '{"dry_run":true,"repository":"%s","branch":"%s","ref":"%s","planned_protection_rules":%s}\n' \
-                    "$repo" "$branch_name" "$ref" "$rules_json"
-            fi
+            jq -n \
+                --arg repo "$repo" \
+                --arg branch "$branch_name" \
+                --arg ref "$ref" \
+                --argjson rules "$rules_json" \
+                '{
+                    dry_run: true,
+                    repository: $repo,
+                    branch: $branch,
+                    ref: $ref,
+                    planned_protection_rules: $rules
+                }'
         fi
         exit 0
     fi
@@ -525,40 +546,32 @@ main() {
             # Rules differ
             local requested_rules
             requested_rules=$(build_rules_json)
-            local actual_rules="{"
-            local first=true
+            local actual_rules="{}"
             local i
             for i in $(seq 0 $((${#RULE_KEYS[@]} - 1))); do
                 local key="${RULE_KEYS[$i]}"
                 local val
-                val=$(echo "$protection_json" | jq -r "if has(\"$key\") then .$key | tostring else \"\" end" 2>/dev/null)
-                if [ "$first" = true ]; then first=false; else actual_rules+=","; fi
+                val=$(extract_protection_value "$protection_json" "$key")
                 if [[ "$val" =~ ^[0-9]+$ ]] || [[ "$val" == "true" ]] || [[ "$val" == "false" ]]; then
-                    actual_rules+="\"$key\":$val"
+                    actual_rules=$(echo "$actual_rules" | jq --arg k "$key" --argjson v "$val" '. + {($k): $v}')
                 else
-                    actual_rules+="\"$key\":\"$val\""
+                    actual_rules=$(echo "$actual_rules" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
                 fi
             done
-            actual_rules+="}"
 
-            if command -v jq &>/dev/null; then
-                jq -n \
-                    --arg error "Branch '$branch_name' is already protected with different rules" \
-                    --arg repo "$repo" \
-                    --arg branch "$branch_name" \
-                    --argjson current "$actual_rules" \
-                    --argjson requested "$requested_rules" \
-                    '{
-                        error: $error,
-                        repository: $repo,
-                        branch: $branch,
-                        current_rules: $current,
-                        requested_rules: $requested
-                    }'
-            else
-                printf '{"error":"Branch '\''%s'\'' is already protected with different rules","repository":"%s","branch":"%s","current_rules":%s,"requested_rules":%s}\n' \
-                    "$branch_name" "$repo" "$branch_name" "$actual_rules" "$requested_rules"
-            fi
+            jq -n \
+                --arg error "Branch '$branch_name' is already protected with different rules" \
+                --arg repo "$repo" \
+                --arg branch "$branch_name" \
+                --argjson current "$actual_rules" \
+                --argjson requested "$requested_rules" \
+                '{
+                    error: $error,
+                    repository: $repo,
+                    branch: $branch,
+                    current_rules: $current,
+                    requested_rules: $requested
+                }'
             exit 1
         fi
     fi
@@ -567,7 +580,8 @@ main() {
     log "Applying protection rules..."
     local protect_result
     if ! protect_result=$(protect_branch "$encoded_repo" "$branch_name"); then
-        json_error "Failed to protect branch '$branch_name': $protect_result" "$repo" "$branch_name"
+        log "WARNING: Branch '$branch_name' was created but protection failed. The branch exists unprotected — delete it manually if needed."
+        json_error "Failed to protect branch '$branch_name' (branch exists unprotected): $protect_result" "$repo" "$branch_name"
         exit 1
     fi
 

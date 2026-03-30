@@ -1,6 +1,6 @@
 ---
 name: gitlab-branch-manager
-description: Create and protect GitLab branches. Use when the user asks to create a branch, protect a branch, or set up branch protection rules on GitLab. Uses the glab GitLab CLI.
+description: Create and protect GitLab branches. Use when the user asks to create a branch, protect a branch, or set up branch protection rules on GitLab. Uses the glab GitLab CLI. The script takes three required positional args in order: repo, branch-name, ref (no --ref flag).
 allowed-tools: Bash(*/gitlab-branch-manager/scripts/*.sh:*),Bash(*/tools/glab/install.sh:*),Bash(*/tools/jq/install.sh:*)
 ---
 
@@ -13,14 +13,14 @@ Create GitLab branches and apply protection rules. Designed for release workflow
 **Prerequisites:**
 - `glab` command is available and authenticated
 - Works with gitlab.com, GitLab Self-Managed, and GitLab Dedicated
-- Optional: `jq` for JSON parsing
+- `jq` for JSON parsing
 
 **Installation:**
 ```bash
 # glab CLI (required)
 ../../../tools/glab/install.sh
 
-# jq (optional, recommended)
+# jq (required)
 ../../../tools/jq/install.sh
 ```
 
@@ -62,45 +62,52 @@ Creates a branch and applies protection rules in a single operation.
 
 **Usage:**
 ```bash
-./scripts/create_and_protect_branch.sh <repo> <branch-name> [OPTIONS]
+./scripts/create_and_protect_branch.sh <repo> <branch-name> <ref> [OPTIONS]
 ```
 
-**Arguments:**
+IMPORTANT: All three positional arguments are required and must appear in this exact order. There is no `--ref` flag — the ref is always the third positional argument.
 
-| Argument | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `<repo>` | Yes | -- | Repo name, full path, or URL |
-| `<branch-name>` | Yes | -- | Name for the new branch |
-| `--ref REF` | No | `main` | Source ref to branch from |
-| `--push-level N` | No | `0` | Push access level |
-| `--merge-level N` | No | `40` | Merge access level |
-| `--unprotect-level N` | No | not set | Unprotect access level |
-| `--allow-force-push` | No | `false` | Allow force push |
-| `--code-owner-approval` | No | `false` | Require code owner approval |
-| `--gitlab-host HOST` | No | `gitlab.com` | GitLab hostname |
-| `--rule KEY=VALUE` | No | -- | Override any protection rule by key |
-| `--dry-run` | No | -- | Show planned actions, no API calls |
-| `--human-readable` | No | -- | Human-readable output |
+**Positional arguments (required, in order):**
+
+| Position | Argument | Description |
+|----------|----------|-------------|
+| 1 | `<repo>` | Repo name, full path, or URL |
+| 2 | `<branch-name>` | Name for the new branch |
+| 3 | `<ref>` | Source ref to branch from (tag, commit SHA, or branch name) |
+
+**Options (all optional):**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--push-level N` | `0` | Push access level |
+| `--merge-level N` | `40` | Merge access level |
+| `--unprotect-level N` | not set | Unprotect access level |
+| `--allow-force-push` | `false` | Allow force push |
+| `--code-owner-approval` | `false` | Require code owner approval |
+| `--gitlab-host HOST` | `gitlab.com` | GitLab hostname |
+| `--rule KEY=VALUE` | -- | Override any protection rule by key |
+| `--dry-run` | -- | Show planned actions, no API calls |
+| `--human-readable` | -- | Human-readable output |
 
 **Examples:**
 ```bash
-# Create and protect a release branch with defaults
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5
+# Create and protect a release branch from a tag
+./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0
 
-# Branch from a specific tag
-./scripts/create_and_protect_branch.sh redhat/rhel-ai/ci-cd/aipcc-claudio release-1.5 --ref v1.4.0
+# Branch from main
+./scripts/create_and_protect_branch.sh redhat/rhel-ai/ci-cd/aipcc-claudio release-1.5 main
 
 # Custom protection levels
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 --push-level 40 --merge-level 40
+./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --push-level 40 --merge-level 40
 
 # Override any rule with --rule
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 --rule merge_access_level=30
+./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --rule merge_access_level=30
 
 # Dry run - see what would happen
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 --dry-run
+./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --dry-run
 
 # From a URL
-./scripts/create_and_protect_branch.sh https://gitlab.com/redhat/rhel-ai/ci-cd/aipcc-claudio.git release-1.5
+./scripts/create_and_protect_branch.sh https://gitlab.com/redhat/rhel-ai/ci-cd/aipcc-claudio.git release-1.5 v1.4.0
 ```
 
 **Output (JSON, default):**
@@ -114,7 +121,6 @@ Creates a branch and applies protection rules in a single operation.
   "protection_rules": {
     "push_access_level": 0,
     "merge_access_level": 40,
-    "unprotect_access_level": 0,
     "allow_force_push": false,
     "code_owner_approval_required": false
   }
@@ -134,5 +140,4 @@ Creates a branch and applies protection rules in a single operation.
 
 ## Dependencies
 
-**Required:** `glab` (install via `tools/glab/install.sh`)
-**Optional:** `jq` (install via `tools/jq/install.sh`)
+**Required:** `glab` (install via `tools/glab/install.sh`), `jq` (install via `tools/jq/install.sh`)

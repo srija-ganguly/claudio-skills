@@ -97,16 +97,16 @@ BRANCH_JSON = json.dumps({
 
 PROTECTION_JSON_DEFAULT = json.dumps({
     "name": "release-1.5",
-    "push_access_level": 0,
-    "merge_access_level": 40,
+    "push_access_levels": [{"access_level": 0, "access_level_description": "No one"}],
+    "merge_access_levels": [{"access_level": 40, "access_level_description": "Maintainers"}],
     "allow_force_push": False,
     "code_owner_approval_required": False,
 })
 
 PROTECTION_JSON_DIFFERENT = json.dumps({
     "name": "release-1.5",
-    "push_access_level": 30,
-    "merge_access_level": 30,
+    "push_access_levels": [{"access_level": 30, "access_level_description": "Developers + Maintainers"}],
+    "merge_access_levels": [{"access_level": 30, "access_level_description": "Developers + Maintainers"}],
     "allow_force_push": False,
     "code_owner_approval_required": False,
 })
@@ -161,7 +161,7 @@ class TestHappyPath:
                 (0, PROJECT_JSON),
         })
 
-        result = _run_script(mock_dir, ["owner/repo", "release-1.5"])
+        result = _run_script(mock_dir, ["owner/repo", "release-1.5", "main"])
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -195,7 +195,7 @@ class TestBranchExists:
                 (0, PROJECT_JSON),
         })
 
-        result = _run_script(mock_dir, ["owner/repo", "release-1.5"])
+        result = _run_script(mock_dir, ["owner/repo", "release-1.5", "main"])
 
         assert result.returncode == 1
         output = json.loads(result.stdout)
@@ -224,7 +224,7 @@ class TestProtectionIdempotency:
                 (0, PROJECT_JSON),
         })
 
-        result = _run_script(mock_dir, ["owner/repo", "release-1.5"])
+        result = _run_script(mock_dir, ["owner/repo", "release-1.5", "main"])
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -253,7 +253,7 @@ class TestProtectionIdempotency:
                 (0, PROJECT_JSON),
         })
 
-        result = _run_script(mock_dir, ["owner/repo", "release-1.5"])
+        result = _run_script(mock_dir, ["owner/repo", "release-1.5", "main"])
 
         assert result.returncode == 1
         output = json.loads(result.stdout)
@@ -268,8 +268,8 @@ class TestCustomProtection:
     def test_custom_protection_levels(self, tmp_path):
         custom_protection = json.dumps({
             "name": "release-1.5",
-            "push_access_level": 30,
-            "merge_access_level": 30,
+            "push_access_levels": [{"access_level": 30, "access_level_description": "Developers + Maintainers"}],
+            "merge_access_levels": [{"access_level": 30, "access_level_description": "Developers + Maintainers"}],
             "allow_force_push": False,
             "code_owner_approval_required": False,
         })
@@ -289,7 +289,7 @@ class TestCustomProtection:
         })
 
         result = _run_script(mock_dir, [
-            "owner/repo", "release-1.5",
+            "owner/repo", "release-1.5", "main",
             "--push-level", "30",
             "--merge-level", "30",
         ])
@@ -319,7 +319,7 @@ class TestDryRun:
         })
 
         result = _run_script(mock_dir, [
-            "owner/repo", "release-1.5", "--dry-run",
+            "owner/repo", "release-1.5", "main", "--dry-run",
         ])
 
         assert result.returncode == 0
@@ -350,6 +350,11 @@ class TestMissingArgs:
         result = _run_script(mock_dir, ["owner/repo"])
         assert result.returncode == 1
 
+    def test_missing_ref(self, tmp_path):
+        mock_dir, _ = _create_mock_glab(tmp_path, {})
+        result = _run_script(mock_dir, ["owner/repo", "release-1.5"])
+        assert result.returncode == 1
+
 
 class TestRepoResolution:
     """Repo input format resolution."""
@@ -369,7 +374,7 @@ class TestRepoResolution:
                 (0, PROTECTION_JSON_DEFAULT),
         })
 
-        result = _run_script(mock_dir, ["aipcc-claudio", "release-1.5"])
+        result = _run_script(mock_dir, ["aipcc-claudio", "release-1.5", "main"])
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -393,7 +398,7 @@ class TestRepoResolution:
 
         result = _run_script(mock_dir, [
             "https://gitlab.com/redhat/rhel-ai/ci-cd/aipcc-claudio.git",
-            "release-1.5",
+            "release-1.5", "main",
         ])
 
         assert result.returncode == 0
@@ -417,7 +422,7 @@ class TestRepoResolution:
 
         result = _run_script(mock_dir, [
             "git@gitlab.com:group/repo.git",
-            "feature-1",
+            "feature-1", "main",
         ])
 
         assert result.returncode == 0
@@ -430,7 +435,7 @@ class TestRepoResolution:
                 (0, SEARCH_RESULT_MULTIPLE),
         })
 
-        result = _run_script(mock_dir, ["myrepo", "release-1.5"])
+        result = _run_script(mock_dir, ["myrepo", "release-1.5", "main"])
 
         assert result.returncode == 1
         output = json.loads(result.stdout)
@@ -447,7 +452,7 @@ class TestRepoValidation:
                 (1, '{"error": "404 Not Found"}'),
         })
 
-        result = _run_script(mock_dir, ["owner/bogus-repo", "release-1.5"])
+        result = _run_script(mock_dir, ["owner/bogus-repo", "release-1.5", "main"])
 
         assert result.returncode == 1
         output = json.loads(result.stdout)
@@ -467,7 +472,7 @@ class TestRepoValidation:
 
         result = _run_script(mock_dir, [
             "https://gitlab.com/group/nonexistent.git",
-            "release-1.5",
+            "release-1.5", "main",
         ])
 
         assert result.returncode == 1
@@ -484,7 +489,7 @@ class TestRepoValidation:
 
         result = _run_script(mock_dir, [
             "git@gitlab.com:org/missing.git",
-            "feature-1",
+            "feature-1", "main",
         ])
 
         assert result.returncode == 1
@@ -493,7 +498,7 @@ class TestRepoValidation:
 
 
 class TestCustomRef:
-    """Branching from a non-default ref."""
+    """Branching from a specific ref (tag, SHA, etc.)."""
 
     def test_custom_ref(self, tmp_path):
         mock_dir, log_file = _create_mock_glab(tmp_path, {
@@ -511,7 +516,7 @@ class TestCustomRef:
         })
 
         result = _run_script(mock_dir, [
-            "owner/repo", "release-1.5", "--ref", "v1.4.0",
+            "owner/repo", "release-1.5", "v1.4.0",
         ])
 
         assert result.returncode == 0
@@ -544,7 +549,7 @@ class TestHumanReadable:
         })
 
         result = _run_script(mock_dir, [
-            "owner/repo", "release-1.5", "--human-readable",
+            "owner/repo", "release-1.5", "main", "--human-readable",
         ])
 
         assert result.returncode == 0
@@ -561,7 +566,7 @@ class TestHumanReadable:
         })
 
         result = _run_script(mock_dir, [
-            "owner/repo", "release-1.5", "--dry-run", "--human-readable",
+            "owner/repo", "release-1.5", "main", "--dry-run", "--human-readable",
         ])
 
         assert result.returncode == 0
@@ -588,7 +593,7 @@ class TestRuleOverride:
         })
 
         result = _run_script(mock_dir, [
-            "owner/repo", "release-1.5",
+            "owner/repo", "release-1.5", "main",
             "--rule", "merge_access_level=30",
         ])
 
