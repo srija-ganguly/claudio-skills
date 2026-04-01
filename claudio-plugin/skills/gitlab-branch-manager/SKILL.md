@@ -50,9 +50,9 @@ The script accepts three input formats:
 
 | Format | Example | Resolution |
 |--------|---------|------------|
-| Short name | `aipcc-claudio` | Resolved via GitLab API search |
-| Full path | `redhat/rhel-ai/ci-cd/aipcc-claudio` | Used as-is |
-| URL | `https://gitlab.com/redhat/rhel-ai/ci-cd/aipcc-claudio.git` | Parsed to extract project path |
+| Short name | `my-project` | Resolved via GitLab API search |
+| Full path | `my-org/my-group/my-project` | Used as-is |
+| URL | `https://gitlab.com/my-org/my-group/my-project.git` | Parsed to extract project path |
 
 ## Script Reference
 
@@ -92,28 +92,28 @@ IMPORTANT: All three positional arguments are required and must appear in this e
 **Examples:**
 ```bash
 # Create and protect a release branch from a tag
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0
+./scripts/create_and_protect_branch.sh my-project release-1.5 v1.4.0
 
 # Branch from main
-./scripts/create_and_protect_branch.sh redhat/rhel-ai/ci-cd/aipcc-claudio release-1.5 main
+./scripts/create_and_protect_branch.sh my-org/my-group/my-project release-1.5 main
 
 # Custom protection levels
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --push-level 40 --merge-level 40
+./scripts/create_and_protect_branch.sh my-project release-1.5 v1.4.0 --push-level 40 --merge-level 40
 
 # Override any rule with --rule
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --rule merge_access_level=30
+./scripts/create_and_protect_branch.sh my-project release-1.5 v1.4.0 --rule merge_access_level=30
 
 # Dry run - see what would happen
-./scripts/create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --dry-run
+./scripts/create_and_protect_branch.sh my-project release-1.5 v1.4.0 --dry-run
 
 # From a URL
-./scripts/create_and_protect_branch.sh https://gitlab.com/redhat/rhel-ai/ci-cd/aipcc-claudio.git release-1.5 v1.4.0
+./scripts/create_and_protect_branch.sh https://gitlab.com/my-org/my-group/my-project.git release-1.5 v1.4.0
 ```
 
 **Output (JSON, default):**
 ```json
 {
-  "repository": "redhat/rhel-ai/ci-cd/aipcc-claudio",
+  "repository": "my-org/my-group/my-project",
   "branch": "release-1.5",
   "ref": "main",
   "branch_created": true,

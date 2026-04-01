@@ -5,10 +5,10 @@
 #   create_and_protect_branch.sh <repo> <branch-name> <ref> [OPTIONS]
 #
 # Examples:
-#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0
-#   ./create_and_protect_branch.sh redhat/rhel-ai/ci-cd/aipcc-claudio release-1.5 v1.4.0
-#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 main --push-level 40 --merge-level 40
-#   ./create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --dry-run
+#   ./create_and_protect_branch.sh my-project release-1.5 v1.4.0
+#   ./create_and_protect_branch.sh my-org/my-group/my-project release-1.5 v1.4.0
+#   ./create_and_protect_branch.sh my-project release-1.5 main --push-level 40 --merge-level 40
+#   ./create_and_protect_branch.sh my-project release-1.5 v1.4.0 --dry-run
 
 set -euo pipefail
 
@@ -44,19 +44,19 @@ ACCESS LEVELS:
 
 EXAMPLES:
     # Create and protect with defaults (strict lockdown)
-    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0
+    create_and_protect_branch.sh my-project release-1.5 v1.4.0
 
     # Branch from a tag
-    create_and_protect_branch.sh redhat/rhel-ai/ci-cd/repo release-1.5 v1.4.0
+    create_and_protect_branch.sh my-org/my-group/my-project release-1.5 v1.4.0
 
     # Custom protection
-    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --push-level 40 --merge-level 40
+    create_and_protect_branch.sh my-project release-1.5 v1.4.0 --push-level 40 --merge-level 40
 
     # Dry run
-    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --dry-run
+    create_and_protect_branch.sh my-project release-1.5 v1.4.0 --dry-run
 
     # Generic rule override
-    create_and_protect_branch.sh aipcc-claudio release-1.5 v1.4.0 --rule merge_access_level=30
+    create_and_protect_branch.sh my-project release-1.5 v1.4.0 --rule merge_access_level=30
 EOF
 }
 

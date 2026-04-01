@@ -119,14 +119,14 @@ PROJECT_JSON = json.dumps({
 
 PROJECT_JSON_DEEP = json.dumps({
     "id": 456,
-    "path": "aipcc-claudio",
-    "path_with_namespace": "redhat/rhel-ai/ci-cd/aipcc-claudio",
+    "path": "my-project",
+    "path_with_namespace": "acme/platform/ci-cd/my-project",
 })
 
 SEARCH_RESULT_SINGLE = json.dumps([{
     "id": 123,
-    "path": "aipcc-claudio",
-    "path_with_namespace": "redhat/rhel-ai/ci-cd/aipcc-claudio",
+    "path": "my-project",
+    "path_with_namespace": "acme/platform/ci-cd/my-project",
 }])
 
 SEARCH_RESULT_MULTIPLE = json.dumps([
@@ -362,48 +362,48 @@ class TestRepoResolution:
     def test_short_repo_name_resolved(self, tmp_path):
         mock_dir, log_file = _create_mock_glab(tmp_path, {
             # Search API
-            "projects?search=aipcc-claudio":
+            "projects?search=my-project":
                 (0, SEARCH_RESULT_SINGLE),
-            "--method GET projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/repository/branches/release-1.5":
+            "--method GET projects/acme%2Fplatform%2Fci-cd%2Fmy-project/repository/branches/release-1.5":
                 (1, '{"error": "404"}'),
-            "--method POST projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/repository/branches":
+            "--method POST projects/acme%2Fplatform%2Fci-cd%2Fmy-project/repository/branches":
                 (0, BRANCH_JSON),
-            "--method GET projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/protected_branches/release-1.5":
+            "--method GET projects/acme%2Fplatform%2Fci-cd%2Fmy-project/protected_branches/release-1.5":
                 (1, '{"error": "404"}'),
-            "--method POST projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/protected_branches":
+            "--method POST projects/acme%2Fplatform%2Fci-cd%2Fmy-project/protected_branches":
                 (0, PROTECTION_JSON_DEFAULT),
         })
 
-        result = _run_script(mock_dir, ["aipcc-claudio", "release-1.5", "main"])
+        result = _run_script(mock_dir, ["my-project", "release-1.5", "main"])
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["repository"] == "redhat/rhel-ai/ci-cd/aipcc-claudio"
+        assert output["repository"] == "acme/platform/ci-cd/my-project"
         assert "Resolved to" in result.stderr
 
     def test_full_url_parsed(self, tmp_path):
         mock_dir, log_file = _create_mock_glab(tmp_path, {
-            "--method GET projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/repository/branches/release-1.5":
+            "--method GET projects/acme%2Fplatform%2Fci-cd%2Fmy-project/repository/branches/release-1.5":
                 (1, '{"error": "404"}'),
-            "--method POST projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/repository/branches":
+            "--method POST projects/acme%2Fplatform%2Fci-cd%2Fmy-project/repository/branches":
                 (0, BRANCH_JSON),
-            "--method GET projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/protected_branches/release-1.5":
+            "--method GET projects/acme%2Fplatform%2Fci-cd%2Fmy-project/protected_branches/release-1.5":
                 (1, '{"error": "404"}'),
-            "--method POST projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio/protected_branches":
+            "--method POST projects/acme%2Fplatform%2Fci-cd%2Fmy-project/protected_branches":
                 (0, PROTECTION_JSON_DEFAULT),
             # GET project → 200 (repo validation)
-            "--method GET projects/redhat%2Frhel-ai%2Fci-cd%2Faipcc-claudio":
+            "--method GET projects/acme%2Fplatform%2Fci-cd%2Fmy-project":
                 (0, PROJECT_JSON_DEEP),
         })
 
         result = _run_script(mock_dir, [
-            "https://gitlab.com/redhat/rhel-ai/ci-cd/aipcc-claudio.git",
+            "https://gitlab.com/acme/platform/ci-cd/my-project.git",
             "release-1.5", "main",
         ])
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["repository"] == "redhat/rhel-ai/ci-cd/aipcc-claudio"
+        assert output["repository"] == "acme/platform/ci-cd/my-project"
 
     def test_git_ssh_url_parsed(self, tmp_path):
         mock_dir, log_file = _create_mock_glab(tmp_path, {
