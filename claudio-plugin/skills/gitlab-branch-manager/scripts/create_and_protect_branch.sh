@@ -192,7 +192,7 @@ validate_repo() {
     local encoded
     encoded=$(url_encode "$repo_path")
     local result
-    if ! result=$(glab_api --method GET "projects/$encoded" 2>&1); then
+    if ! result=$(glab_api --method GET "projects/$encoded" 2>/dev/null); then
         json_error "Repository '$repo_path' not found on GitLab" "$repo_path" ""
         return 1
     fi
@@ -229,8 +229,9 @@ resolve_repo() {
     # Short name: search via API
     log "Resolving project name '$input'..."
     local search_result
-    if ! search_result=$(glab_api --method GET "projects?search=$input&per_page=5" 2>&1); then
-        json_error "Failed to search for project '$input': $search_result" "$input" ""
+    local search_err
+    if ! search_result=$(glab_api --method GET "projects?search=$input&per_page=5" 2>/dev/null); then
+        json_error "Failed to search for project '$input'" "$input" ""
         return 1
     fi
 
@@ -273,7 +274,7 @@ create_branch() {
     local branch="$2"
     local ref="$3"
     glab_api --method POST "projects/$encoded_repo/repository/branches" \
-        -f "branch=$branch" -f "ref=$ref" 2>&1
+        -f "branch=$branch" -f "ref=$ref" 2>/dev/null
 }
 
 check_branch_protected() {
@@ -292,7 +293,7 @@ protect_branch() {
         args+=(-f "${RULE_KEYS[$i]}=${RULE_VALS[$i]}")
     done
 
-    glab_api --method POST "projects/$encoded_repo/protected_branches" "${args[@]}" 2>&1
+    glab_api --method POST "projects/$encoded_repo/protected_branches" "${args[@]}" 2>/dev/null
 }
 
 # Extract a rule value from GitLab protected branch API response.
