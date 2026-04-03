@@ -8,12 +8,13 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/^claudio-plugin/tools/.+/install\.sh$/"
+        "/^claudio-plugin/tools/.+/install\\.sh$/"
       ],
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s+depName=(?<depName>[^\\s]+)(?:\\s+registryUrl=(?<registryUrl>[^\\s]+))?\\n[A-Z_]+_VERSION=\"(?<currentValue>[^\"]+)\""
       ],
-      "versioningTemplate": "semver"
+      "versioningTemplate": "semver",
+      "extractVersionTemplate": "^(?:v|jq-)?(?<version>.*)$"
     }
   ]
 }
