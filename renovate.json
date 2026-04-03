@@ -1,11 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["gitlab>redhat/rhel-ai/renovate-config"],
-  "baseBranches": ["main"],
+  "baseBranchPatterns": [
+    "main"
+  ],
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["^claudio-plugin/tools/.+/install\\.sh$"],
+      "managerFilePatterns": [
+        "/^claudio-plugin/tools/.+/install\.sh$/"
+      ],
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s+depName=(?<depName>[^\\s]+)(?:\\s+registryUrl=(?<registryUrl>[^\\s]+))?\\n[A-Z_]+_VERSION=\"(?<currentValue>[^\"]+)\""
       ],
