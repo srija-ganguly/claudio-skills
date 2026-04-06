@@ -23,7 +23,7 @@ source "$SCRIPT_DIR/../common.sh"
 # DEPENDENCY VERSION
 # ============================================================================
 # This version is tracked by Renovate for automatic updates
-# renovate: datasource=github-releases depName=aws/aws-cli
+# renovate: datasource=github-tags depName=aws/aws-cli
 AWS_CLI_VERSION="2.15.17"
 
 # ============================================================================
